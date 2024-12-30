@@ -18,9 +18,9 @@
 import { Schema, DOMParser } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { schema } from 'prosemirror-schema-basic';
 import { addListNodes, wrapInList } from 'prosemirror-schema-list';
 import { toggleMark, setBlockType, wrapIn } from 'prosemirror-commands';
+// import { schema } from 'prosemirror-schema-basic';
 
 export default {
   data() {
@@ -30,10 +30,82 @@ export default {
     };
   },
   mounted() {
-    // 扩展 Schema，支持列表和其他块级内容
+    // 定义自定义 Schema
     this.mySchema = new Schema({
-      nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block'),
-      marks: schema.spec.marks,
+      nodes: {
+        // 文档根节点
+        doc: {
+          content: "block+",
+        },
+        // 段落
+        paragraph: {
+          content: "inline*",
+          group: "block",
+          parseDOM: [{ tag: "p" }],
+          toDOM: () => ["p", 0],
+        },
+        // 标题
+        heading: {
+          attrs: { level: { default: 1 } },
+          content: "inline*",
+          group: "block",
+          defining: true,
+          parseDOM: [
+            { tag: "h1", attrs: { level: 1 } },
+            { tag: "h2", attrs: { level: 2 } },
+            { tag: "h3", attrs: { level: 3 } },
+          ],
+          toDOM: (node) => [`h${node.attrs.level}`, 0],
+        },
+        // 引用
+        blockquote: {
+          content: "block+",
+          group: "block",
+          defining: true,
+          parseDOM: [{ tag: "blockquote" }],
+          toDOM: () => ["blockquote", 0],
+        },
+        // 代码块
+        code_block: {
+          content: "text*",
+          group: "block",
+          marks: "",
+          code: true,
+          defining: true,
+          parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
+          toDOM: () => ["pre", ["code", 0]],
+        },
+        // 文本节点
+        text: {
+          group: "inline",
+        },
+      },
+      marks: {
+        // 加粗
+        strong: {
+          parseDOM: [
+            { tag: "strong" },
+            { tag: "b", getAttrs: (node) => node.style.fontWeight !== "normal" && null },
+            {
+              style: "font-weight",
+              getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
+            },
+          ],
+          toDOM: () => ["strong", 0],
+        },
+        // 斜体
+        em: {
+          parseDOM: [
+            { tag: "i" },
+            { tag: "em" },
+            {
+              style: "font-style",
+              getAttrs: (value) => value === "italic" && null,
+            },
+          ],
+          toDOM: () => ["em", 0],
+        },
+      },
     });
 
     // 初始化 EditorView
